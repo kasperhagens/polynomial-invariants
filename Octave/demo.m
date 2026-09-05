@@ -1,5 +1,3 @@
-%Only needed once:
-%pkg install -forge symbolic-3.0.1.tar.gz
 pkg load symbolic
 
 syms x;
