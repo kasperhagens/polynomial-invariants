@@ -1,30 +1,13 @@
-# This is a Python-SymPy version of the GNU Octave invariant algorithm presented in the paper: Matrix invariants for program equivalence in LCTRSs
-# https://www.cs.ru.nl/~cynthiakop/wpte23.pdf
-
 import sympy as sp
 from sympy import sstr
 from itertools import product
-
-# ===========================
-# invariants(n, d, chi, init)
-# ===========================
-# Input
-# -----
-# n: the number of divergence variables
-# d: the degree of the polynomial invariants
-# chi: the divergence substitution
-# init: the initialization vector, which should be of length n
-
-# Output
-# ------
-# A set of polynomial invariants of degree d
 
 def invariants(n, d, chi, init):
     # ---------------------------------------
     # Generate divergence variables Y1,...,Yn
     # ---------------------------------------
-    Y = sp.symbols(f'Y1:{n+1}')  # Y1, Y2, ..., Yn
-    # Convert Y into a matrix data structure 
+    # Generate variables Y1,...,Yn and store them as a SymPy Matrix.
+    Y = sp.symbols(f'Y1:{n+1}') 
     Y = sp.Matrix(Y)
 
     # ------------------------------
@@ -36,11 +19,11 @@ def invariants(n, d, chi, init):
         # {(j_1, ..., j_n) | sum_{i=1}^n j_i = p}, and store the result in M. 
         for exp in product(range(p + 1), repeat=n):
             if sum(exp) == p:
-                # Fix order: apply reversed(-) to make sure that Y1 gets the first exponent (instead of Yn)
+                # Reverse the exponent vector so that the first exponent corresponds to Y1.
                 mon = sp.prod(Y[i] ** j_i for i, j_i in enumerate(reversed(exp)))
                 M.append(mon)
     M = sp.Matrix(M) 
-    # Note: m = number of monomials in the polynomial invariant (of degree d in n variables) 
+    # m is the number of monomials in the polynomial invariant of degree d in n variables
     m = len(M)
 
     # ---------------------------
@@ -48,28 +31,23 @@ def invariants(n, d, chi, init):
     # e0,...,em-1
     # ---------------------------
     e = [sp.Matrix(init)]
-    # From the input data: e0 = init  
-    # By definition, e[i] = chi(e[i-1]) for i = 1,...,m-1
+    # The initial divergence vector is e0 = init  
+    # By definition, e_i = chi(e_{i-1}) for i = 1,...,m-1
     for i in range(1, m):
         e.append(chi(e[i - 1]))
 
     # ------------------------------------
     # Generate divergence matrix D:
-    # Row i of D equals M evaluated in e[i]
+    # Row i of D equals M evaluated in e_i
     # ------------------------------------
     D = sp.zeros(m, m)  # preallocate an m x m symbolic matrix
 
     for i in range(m):
-        # Make dictionary: 
-        # for every i, want to substitute Y[j] := e[i][j], for all j.
-        # This is used below to evaluate M in e[i]
+        # Construct a dictionary: mapping Y[j] to e_i[j], for all j
         subs_dict = {Y[j]: e[i][j] for j in range(n)}
 
-        # Row i of D equals M evaluated in e[i]
+        # Use the dictionary to evaluate each monomial in M at e_i to obtain row i of D.
         for col, mon in enumerate(M):
-            # Technical notes: 
-            # enumerate(M) equals ((0, M[0]), (1, M[1]), (2, M[2])), ... 
-            # subs is a method on SymPy expressions that substitutes variables according to a dictionary
             D[i, col] = mon.subs(subs_dict)
 
 
@@ -115,8 +93,8 @@ def invariants(n, d, chi, init):
 # ------------------------
 # Divergence substitution
 # ------------------------
-# Note: we always want to to input chi using 1-starting-indexing-notation (so that it corresponds to V_div = {Y1,..., Yn} and we will not get confused). 
-# Unfortunately, Python uses 0-starting-indexing. Therefore we define a function index_zero_shift to convert back to 0-starting-indexing. 
+# The user-defined chi is expected to use 1-based indexing for the divergence
+# variables (i.e. Y[1], ..., Y[n], rather than Python's standard Y[0], ..., Y[n-1]) to match the mathematical notation V_div = {Y1,...,Yn} used in the paper.
 def chi(Y):
     return sp.Matrix([
         Y[1] - 1,
@@ -124,17 +102,18 @@ def chi(Y):
         Y[3] + Y[1]
     ])
 
-# Convert a 1-starting-indexing substitution to a 0-starting-indexing substitution. 
+# Convert a user-defined 1-based substitution to the 0-based indexing (as expected internally by Python).
 def index_zero_shift(chi_1based):
-    def chi_0based(Y0):
-        # Y0[0] = Y1, Y0[1] = Y2, etc.
-        # Create 1-based list for the user-defined chi
-        Y1based = [None] + list(Y0)  # Y1based[1] = Y1
-        # Call the user's 1-based chi
-        result_1based = chi_1based(Y1based)
-        # Convert back to 0-based for Python
-        return sp.Matrix(result_1based)
+    def chi_0based(Y_0based):
+        # Y_0based[0] corresponds to Y1, 
+        # Y_0based[1] corresponds to Y2, etc.
+        # Convert Y_0based to a 1-based list by adding a first dummy element None, and use it as input to chi_1based.
+        Y_1based = [None] + list(Y_0based)
+        result = chi_1based(Y_1based)
+        return sp.Matrix(result)
     return chi_0based
+
+
 
 
 if __name__ == "__main__":
